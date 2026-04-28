@@ -22,6 +22,8 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
+          # نصب بسته‌های حل چالش جاوااسکریپت
+          yt-dlp --remote-components ejs:github
 
       - name: Download video
         run: |
