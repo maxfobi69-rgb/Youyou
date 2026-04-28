@@ -1,0 +1,3 @@
+.youtube.com	TRUE	/	FALSE	0	PREF	tz=Asia.Tehran
+.youtube.com	TRUE	/	FALSE	0	SOCS	CAISEwgDEgk5MDY1MjY0NzYaAmVuIAEaBgiA8b_PBg
+.youtube.com	TRUE	/	FALSE	0	__Secure-3PAPISID	SP_4ehmdzwB1C__i/AVacqK89of8Fhs2Dx
