@@ -6,10 +6,6 @@ on:
       video_url:
         description: 'لینک ویدیوی یوتیوب'
         required: true
-      po_token:
-        description: 'PO Token (خط اول خروجی Kiwi را کپی کنید)'
-        required: false
-        default: ''
 
 jobs:
   download:
@@ -21,47 +17,65 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install tools (Node.js + yt-dlp)
+      - name: Install tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip nodejs npm
+          sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Validate cookies file
-        run: |
-          if ! head -n 1 cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
-            sed -i '1i # Netscape HTTP Cookie File' cookies.txt
-          fi
-          echo "===== cookies.txt (first 5 lines) ====="
-          cat -A cookies.txt | head -n 5
-
-      - name: Prepare PO Token (if provided)
-        run: |
-          PO_TOKEN="${{ github.event.inputs.po_token }}"
-          if [ -n "$PO_TOKEN" ]; then
-            echo "✅ PO Token provided (length: ${#PO_TOKEN})"
-            echo "PO_TOKEN=$PO_TOKEN" >> $GITHUB_ENV
-          else
-            echo "⚠️ No PO Token provided – relying on cookies and JS runtime only"
-          fi
-
-      - name: Download video
+      - name: Download via Invidious (with fallback)
         run: |
           mkdir -p downloads tmp_downloads
-          EXTRA_ARGS=""
-          if [ -n "$PO_TOKEN" ]; then
-            EXTRA_ARGS="--extractor-args youtube:player_client=android;po_token=$PO_TOKEN"
-          else
-            EXTRA_ARGS="--extractor-args youtube:player_client=android"
+          URL="${{ github.event.inputs.video_url }}"
+          # استخراج ID ویدیو
+          VIDEO_ID=$(echo "$URL" | sed -n 's/.*\(v=\|youtu\.be\/\|embed\/\)\([A-Za-z0-9_-]\{11\}\).*/\2/p')
+          if [ -z "$VIDEO_ID" ]; then
+            echo "❌ Could not extract video ID"
+            exit 1
           fi
-          yt-dlp \
-            --cookies cookies.txt \
-            --js-runtimes node \
-            --force-ipv4 \
-            $EXTRA_ARGS \
-            -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
-            -o "tmp_downloads/%(title)s.%(ext)s" \
-            "${{ github.event.inputs.video_url }}"
+          echo "Video ID: $VIDEO_ID"
+          
+          # لیست نمونه‌های Invidious
+          INSTANCES=(
+            "https://yewtu.be"
+            "https://invidious.fdn.fr"
+            "https://inv.nadeko.net"
+            "https://vid.puffyan.us"
+            "https://invidious.slipfox.xyz"
+            "https://inv.zzls.xyz"
+            "https://invidio.xamh.de"
+          )
+          
+          SUCCESS=0
+          for INSTANCE in "${INSTANCES[@]}"; do
+            INV_URL="${INSTANCE}/watch?v=${VIDEO_ID}"
+            echo "🔄 Trying Invidious: $INSTANCE"
+            
+            # بررسی دسترسی‌پذیری
+            if curl -s --max-time 10 --head "$INV_URL" | head -n 1 | grep -qE "200|301|302"; then
+              echo "✅ Reachable"
+            else
+              echo "⚠️  Not reachable, trying next..."
+              continue
+            fi
+            
+            # دانلود با yt-dlp
+            if yt-dlp --no-check-certificate --force-ipv4 \
+              -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+              -o "tmp_downloads/%(title)s.%(ext)s" \
+              "$INV_URL"; then
+              echo "🎉 Success via $INSTANCE"
+              SUCCESS=1
+              break
+            else
+              echo "❌ Failed via $INSTANCE"
+            fi
+          done
+          
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "❌ All Invidious instances failed"
+            exit 1
+          fi
 
       - name: Split large files
         run: |
