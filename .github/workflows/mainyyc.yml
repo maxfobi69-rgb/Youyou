@@ -32,12 +32,12 @@ jobs:
           URL="${{ github.event.inputs.video_url }}"
           echo "⬇️ Downloading: $URL"
 
-          # با Node.js به عنوان JS Runtime، یوتیوب دیگر درخواست را رد نمی‌کند
+          # از کلاینت Android استفاده می‌کنیم که با Node.js خوب کار می‌کند
           yt-dlp \
             --verbose \
             --force-ipv4 \
             --js-runtimes node \
-            --extractor-args "youtube:player_client=ios" \
+            --extractor-args "youtube:player_client=android" \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "$URL"
