@@ -1,34 +1,109 @@
-name: YouTube Video Downloader
+name: YouTube Downloader (Commit Triggered)
 
 on:
-  workflow_dispatch:
-    inputs:
-      video_url:
-        description: ''
-        required: true
-        default: ''
+  push:
+    branches:
+      - "**"
 
 jobs:
-  download:
-    runs-on: ubuntu-22.04
+  youtube-download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg zip
+          python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
 
-      - name: Download video
+      - name: Extract YouTube URLs from commit message
         run: |
-          mkdir -p downloads
-          # --verbose کمک می‌کند خطاها کامل‌تر دیده شوند
-          yt-dlp --verbose -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "downloads/%(title)s.%(ext)s" "${{ github.event.inputs.video_url }}"
+          MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $MSG"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: youtube-video
-          path: downloads/*.mp4
+          if echo "$MSG" | grep -qP 'youtube:'; then
+            URL_LINE=$(echo "$MSG" | grep -oP 'youtube:\s*\K.*')
+          else
+            echo "❌ No 'youtube:' command found in commit message"
+            exit 1
+          fi
+
+          echo "URLS=$URL_LINE" >> $GITHUB_ENV
+          echo "Mode: YouTube download"
+
+      - name: Download YouTube videos
+        run: |
+          mkdir -p downloads tmp_downloads
+
+          for URL in ${{ env.URLS }}; do
+            echo "⬇️ Processing $URL"
+            yt-dlp \
+              --verbose \
+              --force-ipv4 \
+              --extractor-args "youtube:player_client=android" \
+              -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+              -o "tmp_downloads/%(title)s.%(ext)s" \
+              "$URL"
+          done
+
+      - name: Split large files like github-sandbox
+        run: |
+          for FILE in tmp_downloads/*; do
+            [ -f "$FILE" ] || continue
+            SIZE=$(stat -c%s "$FILE")
+            LIMIT=$((90 * 1024 * 1024))
+            BASENAME=$(basename "$FILE")
+
+            if [ "$SIZE" -gt "$LIMIT" ]; then
+              echo "✂️ $BASENAME is $(( SIZE / 1024 / 1024 ))MB — splitting with zip..."
+              zip -0 -s 90m "downloads/${BASENAME}.zip" -j "$FILE"
+              echo "✅ Parts: $(ls downloads/${BASENAME}* | wc -l)"
+            else
+              cp "$FILE" "downloads/$BASENAME"
+            fi
+          done
+
+          rm -rf tmp_downloads
+
+      - name: Commit & Push in batches of 5 files
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          mapfile -t ALL_FILES < <(git ls-files --others --modified --exclude-standard downloads/)
+
+          TOTAL=${#ALL_FILES[@]}
+          echo "📦 Total files to push: $TOTAL"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+
+          BATCH_SIZE=5
+          BATCH_NUM=0
+
+          for (( i=0; i<TOTAL; i+=BATCH_SIZE )); do
+            BATCH_NUM=$(( BATCH_NUM + 1 ))
+            BATCH=("${ALL_FILES[@]:i:BATCH_SIZE}")
+
+            echo "🚀 Pushing batch $BATCH_NUM: files $((i+1))–$(( i + ${#BATCH[@]} )) of $TOTAL"
+
+            git add "${BATCH[@]}"
+            git commit -m "Add YouTube video(s) — batch $BATCH_NUM [skip ci]"
+
+            git pull --rebase origin "$BRANCH"
+            git push origin HEAD:"$BRANCH"
+
+            echo "✅ Batch $BATCH_NUM pushed"
+          done
+
+          echo "🎉 All $TOTAL files pushed in $BATCH_NUM batch(es)"
