@@ -22,8 +22,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
-          # نصب بسته‌های حل چالش جاوااسکریپت
-          yt-dlp --remote-components ejs:github
 
       - name: Download video
         run: |
@@ -32,7 +30,7 @@ jobs:
             --cookies cookies.txt \
             --js-runtimes node \
             --force-ipv4 \
-            --extractor-args "youtube:player_client=web" \
+            --extractor-args "youtube:player_client=mweb" \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
