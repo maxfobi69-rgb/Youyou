@@ -23,12 +23,14 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
+      # 👇 این مرحله اصلاح شده است
       - name: Create cookies file from base64 secret
         run: |
-          echo "${{ secrets.YOUTUBE_COOKIES }}" | base64 -d > cookies.txt
-          # [اختیاری] بررسی اینکه فایل درست ساخته شده
-          echo "Number of lines in cookies.txt: $(wc -l < cookies.txt)"
-          head -n 1 cookies.txt
+          # استفاده از printf برای جلوگیری از افزوده شدن خط جدید اضافی
+          printf '%s' "${{ secrets.YOUTUBE_COOKIES }}" | base64 -d > cookies.txt
+          # بررسی صحت فایل
+          echo "تعداد خطوط: $(wc -l < cookies.txt)"
+          echo "خط اول: $(head -n 1 cookies.txt)"
 
       - name: Download video
         run: |
