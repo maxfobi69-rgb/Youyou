@@ -23,8 +23,12 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Create cookies file
-        run: echo "${{ secrets.YOUTUBE_COOKIES }}" > cookies.txt
+      - name: Create cookies file from base64 secret
+        run: |
+          echo "${{ secrets.YOUTUBE_COOKIES }}" | base64 -d > cookies.txt
+          # [اختیاری] بررسی اینکه فایل درست ساخته شده
+          echo "Number of lines in cookies.txt: $(wc -l < cookies.txt)"
+          head -n 1 cookies.txt
 
       - name: Download video
         run: |
