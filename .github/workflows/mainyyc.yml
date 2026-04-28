@@ -12,30 +12,23 @@ jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      # مرحله ۱: دریافت کدهای مخزن (با نسخه جدید)
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
-      # مرحله ۲: نصب yt-dlp و ffmpeg
       - name: Install dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg
-          python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
-          echo "✅ یافتاب، yt-dlp و ffmpeg با موفقیت نصب شدند."
 
-      # مرحله ۳: دانلود ویدیو
-      - name: Download video using yt-dlp
+      - name: Download video
         run: |
-          # ایجاد پوشه downloads در صورت عدم وجود
           mkdir -p downloads
-          # دانلود ویدیو با گزینه‌های مناسب
+          # --verbose کمک می‌کند خطاها کامل‌تر دیده شوند
           yt-dlp --verbose -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "downloads/%(title)s.%(ext)s" "${{ github.event.inputs.video_url }}"
 
-      # مرحله ۴: آپلود فایل نهایی (با نسخه جدید)
-      - name: Upload video as artifact
-        uses: actions/upload-artifact@v5
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: youtube-video
           path: downloads/*.mp4
