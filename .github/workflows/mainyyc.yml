@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip
+          sudo apt-get install -y ffmpeg zip nodejs npm
           python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
 
@@ -32,11 +32,11 @@ jobs:
           URL="${{ github.event.inputs.video_url }}"
           echo "⬇️ Downloading: $URL"
 
-          # شبیه‌سازی آیفون + User-Agent معتبر
+          # با Node.js به عنوان JS Runtime، یوتیوب دیگر درخواست را رد نمی‌کند
           yt-dlp \
             --verbose \
             --force-ipv4 \
-            --user-agent "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1" \
+            --js-runtimes node \
             --extractor-args "youtube:player_client=ios" \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
