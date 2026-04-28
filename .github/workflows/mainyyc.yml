@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'https://youtube.com/watch?is=z_EYwdXKlf8hC_YQ&v=uqz3lej6iLU&feature=youtu.be'
+        description: 'https://www.youtube.com/watch?v=uqz3lej6iLU'
         required: true
         default: ''
 
