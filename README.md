@@ -1,4 +1,4 @@
-name: YouTube Video Downloader
+name: YouTube Video Downloadert
 
 on:
   workflow_dispatch:  # امکان اجرای دستی از تب Actions
