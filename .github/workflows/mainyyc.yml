@@ -22,18 +22,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip # ابزارهای ضروری
+          sudo apt-get install -y ffmpeg zip
           python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
-          # نصب ابزار تولید توکن و یک کتابخانه کمکی
-          pip install bgutil-ytdlp-pot-provider
-          pip install mpeg
+          pip install --upgrade bgutil-ytdlp-pot-provider   # ← فقط همین
 
-      # این مرحله جدید است: تولید PO Token
       - name: Generate PO Token
         run: |
           mkdir -p downloads tmp_downloads
-          # اجرای دستور تولید توکن و ذخیره آن در یک فایل موقت
           python3 -c "from bgutil_ytdlp_pot_provider import generate_po_token; print(generate_po_token())" > /tmp/po_token.txt
           echo "✅ PO Token generated."
 
@@ -42,7 +38,6 @@ jobs:
           URL="${{ github.event.inputs.video_url }}"
           echo "⬇️ Downloading: $URL"
 
-          # مرحله اصلی دانلود با استفاده از توکن تولید شده
           yt-dlp \
             --verbose \
             --force-ipv4 \
@@ -71,7 +66,36 @@ jobs:
 
       - name: Commit & Push files
         run: |
-          # ... (این بخش از کد شما بدون تغییر باقی می‌ماند) ...
+          BRANCH="${GITHUB_REF_NAME}"
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          # ... و غیره
+
+          mapfile -t ALL_FILES < <(git ls-files --others --modified --exclude-standard downloads/)
+
+          TOTAL=${#ALL_FILES[@]}
+          echo "📦 Total files to push: $TOTAL"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+
+          BATCH_SIZE=5
+          BATCH_NUM=0
+
+          for (( i=0; i<TOTAL; i+=BATCH_SIZE )); do
+            BATCH_NUM=$(( BATCH_NUM + 1 ))
+            BATCH=("${ALL_FILES[@]:i:BATCH_SIZE}")
+
+            echo "🚀 Pushing batch $BATCH_NUM: files $((i+1))–$(( i + ${#BATCH[@]} )) of $TOTAL"
+
+            git add "${BATCH[@]}"
+            git commit -m "Add YouTube video — batch $BATCH_NUM [skip ci]"
+
+            git pull --rebase origin "$BRANCH"
+            git push origin HEAD:"$BRANCH"
+
+            echo "✅ Batch $BATCH_NUM pushed"
+          done
+
+          echo "🎉 All $TOTAL files pushed in $BATCH_NUM batch(es)"
