@@ -6,6 +6,10 @@ on:
       video_url:
         description: 'لینک ویدیوی یوتیوب'
         required: true
+      po_token:
+        description: 'PO Token (خط اول خروجی Kiwi را کپی کنید)'
+        required: false
+        default: ''
 
 jobs:
   download:
@@ -17,43 +21,44 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install tools (including Node.js)
+      - name: Install tools (Node.js + yt-dlp)
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
 
-      - name: Validate and fix cookies file
+      - name: Validate cookies file
         run: |
-          echo "===== افزودن هدر استاندارد Netscape ====="
           if ! head -n 1 cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
             sed -i '1i # Netscape HTTP Cookie File' cookies.txt
           fi
-          echo ""
-          echo "===== بررسی تب‌ها ====="
+          echo "===== cookies.txt (first 5 lines) ====="
           cat -A cookies.txt | head -n 5
-          if grep -qP '\t' cookies.txt; then
-            echo "✅ فایل cookies.txt دارای تب است."
+
+      - name: Prepare PO Token (if provided)
+        run: |
+          PO_TOKEN="${{ github.event.inputs.po_token }}"
+          if [ -n "$PO_TOKEN" ]; then
+            echo "✅ PO Token provided (length: ${#PO_TOKEN})"
+            echo "PO_TOKEN=$PO_TOKEN" >> $GITHUB_ENV
           else
-            echo "⚠️ فاقد تب – تبدیل خودکار..."
-            awk '{
-              domain=$1; flag=$2; path=$3; secure=$4; expiry=$5; name=$6;
-              value=""; for(i=7; i<=NF; i++) value=(value==""?"":value" ")$i;
-              print domain"\t"flag"\t"path"\t"secure"\t"expiry"\t"name"\t"value
-            }' cookies.txt > temp.txt && mv temp.txt cookies.txt
-            echo "✅ تبدیل انجام شد."
-            cat -A cookies.txt | head -n 5
+            echo "⚠️ No PO Token provided – relying on cookies and JS runtime only"
           fi
 
-      # مرحله‌ی دانلود با Node.js و شبیه‌سازی Android
-      - name: Download video (with JS runtime)
+      - name: Download video
         run: |
           mkdir -p downloads tmp_downloads
+          EXTRA_ARGS=""
+          if [ -n "$PO_TOKEN" ]; then
+            EXTRA_ARGS="--extractor-args youtube:player_client=android;po_token=$PO_TOKEN"
+          else
+            EXTRA_ARGS="--extractor-args youtube:player_client=android"
+          fi
           yt-dlp \
             --cookies cookies.txt \
             --js-runtimes node \
-            --extractor-args "youtube:player_client=android" \
             --force-ipv4 \
+            $EXTRA_ARGS \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
