@@ -6,9 +6,6 @@ on:
       video_url:
         description: 'لینک ویدیوی یوتیوب'
         required: true
-      cookie_b64:
-        description: 'کوکی Base64 (از کنسول Kiwi کپی کنید)'
-        required: true
 
 jobs:
   download:
@@ -26,31 +23,29 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Decode cookies and create cookies.txt
-        shell: python
+      - name: Convert Bb.txt to valid cookies.txt
         run: |
-          import base64, sys
-          b64 = '''${{ github.event.inputs.cookie_b64 }}'''.strip()
-          if not b64:
-              print('❌ رشته Base64 خالی است!')
-              sys.exit(1)
-          try:
-              cookie_text = base64.b64decode(b64).decode('utf-8')
-          except Exception as e:
-              print(f'❌ خطا در رمزگشایی Base64: {e}')
-              sys.exit(1)
-          # چاپ برای بررسی
-          lines = cookie_text.split('\n')
-          print(f'✅ تعداد خطوط: {len(lines)}')
-          for i, line in enumerate(lines[:3]):
-              print(f'  خط {i+1}: {repr(line)}')
-          # اطمینان از وجود تب
-          if '\t' not in cookie_text:
-              print('❌ کوکی‌ها حاوی تب نیستند! لطفاً دوباره از Kiwi استخراج کنید.')
-              sys.exit(1)
-          with open('cookies.txt', 'w', encoding='utf-8') as f:
-              f.write(cookie_text)
-          print('✅ فایل cookies.txt با موفقیت ایجاد شد.')
+          echo "===== محتوای اولیه Bb.txt ====="
+          cat -A Bb.txt
+          echo ""
+          echo "===== تبدیل فاصله‌ها به تب ====="
+          # دستور awk خطوط را می‌خواند، ۷ بخش اول را با تب جدا می‌کند و باقی‌مانده را به‌عنوان مقدار (value) در نظر می‌گیرد
+          awk '{
+            domain=$1; flag=$2; path=$3; secure=$4; expiry=$5; name=$6;
+            value=""; for(i=7; i<=NF; i++) value=(value==""?"":value" ")$i;
+            print domain"\t"flag"\t"path"\t"secure"\t"expiry"\t"name"\t"value
+          }' Bb.txt > cookies.txt
+          echo ""
+          echo "===== فایل cookies.txt نهایی ====="
+          cat -A cookies.txt
+          echo "تعداد خطوط: $(wc -l < cookies.txt)"
+          # بررسی وجود تب
+          if grep -qP '\t' cookies.txt; then
+            echo "✅ فایل cookies.txt اکنون معتبر است."
+          else
+            echo "❌ هنوز مشکلی وجود دارد. لطفاً خروجی بالا را بررسی کنید."
+            exit 1
+          fi
 
       - name: Download video
         run: |
