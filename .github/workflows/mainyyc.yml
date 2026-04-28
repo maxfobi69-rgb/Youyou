@@ -20,62 +20,20 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip
+          sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
 
-      - name: Download via Invidious (with fallback)
+      - name: Download video
         run: |
           mkdir -p downloads tmp_downloads
-          URL="${{ github.event.inputs.video_url }}"
-          # استخراج ID ویدیو
-          VIDEO_ID=$(echo "$URL" | sed -n 's/.*\(v=\|youtu\.be\/\|embed\/\)\([A-Za-z0-9_-]\{11\}\).*/\2/p')
-          if [ -z "$VIDEO_ID" ]; then
-            echo "❌ Could not extract video ID"
-            exit 1
-          fi
-          echo "Video ID: $VIDEO_ID"
-          
-          # لیست نمونه‌های Invidious
-          INSTANCES=(
-            "https://yewtu.be"
-            "https://invidious.fdn.fr"
-            "https://inv.nadeko.net"
-            "https://vid.puffyan.us"
-            "https://invidious.slipfox.xyz"
-            "https://inv.zzls.xyz"
-            "https://invidio.xamh.de"
-          )
-          
-          SUCCESS=0
-          for INSTANCE in "${INSTANCES[@]}"; do
-            INV_URL="${INSTANCE}/watch?v=${VIDEO_ID}"
-            echo "🔄 Trying Invidious: $INSTANCE"
-            
-            # بررسی دسترسی‌پذیری
-            if curl -s --max-time 10 --head "$INV_URL" | head -n 1 | grep -qE "200|301|302"; then
-              echo "✅ Reachable"
-            else
-              echo "⚠️  Not reachable, trying next..."
-              continue
-            fi
-            
-            # دانلود با yt-dlp
-            if yt-dlp --no-check-certificate --force-ipv4 \
-              -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
-              -o "tmp_downloads/%(title)s.%(ext)s" \
-              "$INV_URL"; then
-              echo "🎉 Success via $INSTANCE"
-              SUCCESS=1
-              break
-            else
-              echo "❌ Failed via $INSTANCE"
-            fi
-          done
-          
-          if [ "$SUCCESS" -ne 1 ]; then
-            echo "❌ All Invidious instances failed"
-            exit 1
-          fi
+          yt-dlp \
+            --cookies cookies.txt \
+            --js-runtimes node \
+            --force-ipv4 \
+            --extractor-args "youtube:player_client=android" \
+            -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+            -o "tmp_downloads/%(title)s.%(ext)s" \
+            "${{ github.event.inputs.video_url }}"
 
       - name: Split large files
         run: |
