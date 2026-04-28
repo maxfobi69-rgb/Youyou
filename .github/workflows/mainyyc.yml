@@ -17,51 +17,43 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install tools
+      - name: Install tools (including Node.js)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip
+          sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
 
-      # بررسی و اصلاح فایل کوکی
       - name: Validate and fix cookies file
         run: |
-          echo "===== بررسی فایل cookies.txt ====="
-          # نمایش محتوای فایل برای عیب‌یابی (cat -A کاراکترهای مخفی را نشان می‌دهد)
-          cat -A cookies.txt | head -n 5
-          
-          # اگر فایل header استاندارد را نداشت، اضافه می‌کنیم
+          echo "===== افزودن هدر استاندارد Netscape ====="
           if ! head -n 1 cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
-            echo "⚠️ افزودن خط هدر (Header) به فایل..."
             sed -i '1i # Netscape HTTP Cookie File' cookies.txt
           fi
-          
-          # اگر فایل دارای تب نبود (یعنی فاصله داشت)، آن‌ها را به تب تبدیل می‌کنیم
-          if ! grep -qP '\t' cookies.txt; then
-            echo "⚠️ تبدیل فاصله‌ها به تب..."
+          echo ""
+          echo "===== بررسی تب‌ها ====="
+          cat -A cookies.txt | head -n 5
+          if grep -qP '\t' cookies.txt; then
+            echo "✅ فایل cookies.txt دارای تب است."
+          else
+            echo "⚠️ فاقد تب – تبدیل خودکار..."
             awk '{
               domain=$1; flag=$2; path=$3; secure=$4; expiry=$5; name=$6;
               value=""; for(i=7; i<=NF; i++) value=(value==""?"":value" ")$i;
               print domain"\t"flag"\t"path"\t"secure"\t"expiry"\t"name"\t"value
-            }' cookies.txt > cookies_fixed.txt
-            mv cookies_fixed.txt cookies.txt
-          fi
-          
-          # بررسی نهایی
-          echo "===== فایل نهایی ====="
-          cat -A cookies.txt | head -n 5
-          # اطمینان از وجود تب در فایل (به جز خطوط کامنت)
-          if grep -v '^#' cookies.txt | grep -qP '\t'; then
-            echo "✅ فایل cookies.txt اکنون معتبر است."
-          else
-            echo "❌ هنوز مشکلی وجود دارد. لطفاً خروجی بالا را بررسی کنید."
-            exit 1
+            }' cookies.txt > temp.txt && mv temp.txt cookies.txt
+            echo "✅ تبدیل انجام شد."
+            cat -A cookies.txt | head -n 5
           fi
 
-      - name: Download video
+      # مرحله‌ی دانلود با Node.js و شبیه‌سازی Android
+      - name: Download video (with JS runtime)
         run: |
           mkdir -p downloads tmp_downloads
-          yt-dlp --cookies cookies.txt \
+          yt-dlp \
+            --cookies cookies.txt \
+            --js-runtimes node \
+            --extractor-args "youtube:player_client=android" \
+            --force-ipv4 \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
