@@ -23,24 +23,35 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Convert Bb.txt to valid cookies.txt
+      # بررسی و اصلاح فایل کوکی
+      - name: Validate and fix cookies file
         run: |
-          echo "===== محتوای اولیه Bb.txt ====="
-          cat -A Bb.txt
-          echo ""
-          echo "===== تبدیل فاصله‌ها به تب ====="
-          # دستور awk خطوط را می‌خواند، ۷ بخش اول را با تب جدا می‌کند و باقی‌مانده را به‌عنوان مقدار (value) در نظر می‌گیرد
-          awk '{
-            domain=$1; flag=$2; path=$3; secure=$4; expiry=$5; name=$6;
-            value=""; for(i=7; i<=NF; i++) value=(value==""?"":value" ")$i;
-            print domain"\t"flag"\t"path"\t"secure"\t"expiry"\t"name"\t"value
-          }' Bb.txt > cookies.txt
-          echo ""
-          echo "===== فایل cookies.txt نهایی ====="
-          cat -A cookies.txt
-          echo "تعداد خطوط: $(wc -l < cookies.txt)"
-          # بررسی وجود تب
-          if grep -qP '\t' cookies.txt; then
+          echo "===== بررسی فایل cookies.txt ====="
+          # نمایش محتوای فایل برای عیب‌یابی (cat -A کاراکترهای مخفی را نشان می‌دهد)
+          cat -A cookies.txt | head -n 5
+          
+          # اگر فایل header استاندارد را نداشت، اضافه می‌کنیم
+          if ! head -n 1 cookies.txt | grep -q "# Netscape HTTP Cookie File"; then
+            echo "⚠️ افزودن خط هدر (Header) به فایل..."
+            sed -i '1i # Netscape HTTP Cookie File' cookies.txt
+          fi
+          
+          # اگر فایل دارای تب نبود (یعنی فاصله داشت)، آن‌ها را به تب تبدیل می‌کنیم
+          if ! grep -qP '\t' cookies.txt; then
+            echo "⚠️ تبدیل فاصله‌ها به تب..."
+            awk '{
+              domain=$1; flag=$2; path=$3; secure=$4; expiry=$5; name=$6;
+              value=""; for(i=7; i<=NF; i++) value=(value==""?"":value" ")$i;
+              print domain"\t"flag"\t"path"\t"secure"\t"expiry"\t"name"\t"value
+            }' cookies.txt > cookies_fixed.txt
+            mv cookies_fixed.txt cookies.txt
+          fi
+          
+          # بررسی نهایی
+          echo "===== فایل نهایی ====="
+          cat -A cookies.txt | head -n 5
+          # اطمینان از وجود تب در فایل (به جز خطوط کامنت)
+          if grep -v '^#' cookies.txt | grep -qP '\t'; then
             echo "✅ فایل cookies.txt اکنون معتبر است."
           else
             echo "❌ هنوز مشکلی وجود دارد. لطفاً خروجی بالا را بررسی کنید."
