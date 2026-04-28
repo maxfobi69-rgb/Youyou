@@ -6,13 +6,10 @@ on:
       video_url:
         description: 'لینک ویدیوی یوتیوب'
         required: true
-      cookie_b64:
-        description: 'کوکی Base64 (از کنسول Kiwi کپی کنید)'
-        required: true
 
 jobs:
   download:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
@@ -25,20 +22,6 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
-
-      - name: Decode cookies and create cookies.txt
-        shell: python
-        run: |
-          import base64
-          b64 = '''${{ github.event.inputs.cookie_b64 }}'''.strip()
-          cookie_text = base64.b64decode(b64).decode('utf-8')
-          with open('cookies.txt', 'w', encoding='utf-8') as f:
-              f.write(cookie_text)
-          # نمایش چند خط اول برای بررسی صحت
-          lines = cookie_text.split('\n')
-          print(f"✅ تعداد خطوط فایل کوکی: {len(lines)}")
-          for i, line in enumerate(lines[:3]):
-              print(f"  {i+1}: {line}")
 
       - name: Download video
         run: |
