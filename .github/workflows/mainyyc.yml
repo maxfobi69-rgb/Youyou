@@ -1,10 +1,13 @@
-name: YouTube Downloader (Manual)
+name: YouTube Downloader (Final)
 
 on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'لینک ویدیوی یوتیوب را وارد کنید'
+        description: 'لینک ویدیوی یوتیوب'
+        required: true
+      cookie_b64:
+        description: 'کوکی Base64 (از کنسول Kiwi کپی کنید)'
         required: true
 
 jobs:
@@ -17,55 +20,42 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # توقف ایمن در صورت خالی بودن لینک
-      - name: Check video URL
-        if: github.event.inputs.video_url == ''
-        run: |
-          echo "⚠️ لینک ویدیو وارد نشده است!"
-          echo "لطفاً به تب Actions بروید، workflow را انتخاب کنید، لینک را وارد کرده و سپس Run workflow را بزنید."
-          exit 1
-
       - name: Install tools
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Validate and fix cookies file
+      - name: Decode cookies and create cookies.txt
+        shell: python
         run: |
-          echo "===== محتوای Bb.txt (با cat -A) ====="
-          cat -A Bb.txt | head -n 5
-          echo "تعداد خطوط: $(wc -l < Bb.txt)"
-          
-          if grep -qP '\t' Bb.txt; then
-            echo "✅ فایل Bb.txt دارای تب است."
-          else
-            echo "⚠️ فاقد تب – در حال تبدیل خودکار..."
-            python3 << 'PYEOF'
-          import re
-          with open('Bb.txt', 'r') as f:
-              lines = f.readlines()
-          with open('Bb.txt', 'w') as f:
-              for line in lines:
-                  line = line.strip()
-                  if not line:
-                      continue
-                  parts = line.split()
-                  if len(parts) >= 7:
-                      new_line = '\t'.join(parts[:6]) + '\t' + ' '.join(parts[6:])
-                      f.write(new_line + '\n')
-                  else:
-                      f.write(line + '\n')
-          PYEOF
-            echo "✅ تبدیل انجام شد."
-            echo "محتوای پس از تبدیل:"
-            cat -A Bb.txt | head -n 5
-          fi
+          import base64, sys
+          b64 = '''${{ github.event.inputs.cookie_b64 }}'''.strip()
+          if not b64:
+              print('❌ رشته Base64 خالی است!')
+              sys.exit(1)
+          try:
+              cookie_text = base64.b64decode(b64).decode('utf-8')
+          except Exception as e:
+              print(f'❌ خطا در رمزگشایی Base64: {e}')
+              sys.exit(1)
+          # چاپ برای بررسی
+          lines = cookie_text.split('\n')
+          print(f'✅ تعداد خطوط: {len(lines)}')
+          for i, line in enumerate(lines[:3]):
+              print(f'  خط {i+1}: {repr(line)}')
+          # اطمینان از وجود تب
+          if '\t' not in cookie_text:
+              print('❌ کوکی‌ها حاوی تب نیستند! لطفاً دوباره از Kiwi استخراج کنید.')
+              sys.exit(1)
+          with open('cookies.txt', 'w', encoding='utf-8') as f:
+              f.write(cookie_text)
+          print('✅ فایل cookies.txt با موفقیت ایجاد شد.')
 
       - name: Download video
         run: |
           mkdir -p downloads tmp_downloads
-          yt-dlp --cookies Bb.txt \
+          yt-dlp --cookies cookies.txt \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
