@@ -17,24 +17,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install tools and EJS remote components
+      - name: Install tools and EJS Remote Components
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip nodejs npm curl
+          sudo apt-get install -y ffmpeg zip nodejs npm
           pip install --upgrade yt-dlp
-
-          # نصب دستی اسکریپت‌های EJS برای حل چالش جاوااسکریپت
-          mkdir -p ~/.cache/yt-dlp/ejs
-          echo "⬇️ Downloading EJS remote components..."
-          # دریافت آخرین نسخه از GitHub Releases
-          RELEASE_URL=$(curl -s https://api.github.com/repos/yt-dlp/ejs/releases/latest | grep tarball_url | head -n 1 | cut -d '"' -f 4)
-          if [ -n "$RELEASE_URL" ]; then
-            curl -L "$RELEASE_URL" | tar xz -C ~/.cache/yt-dlp/ejs --strip-components=1
-          else
-            # در صورت عدم دسترسی به API، از شاخه اصلی (main) استفاده کن
-            curl -L https://github.com/yt-dlp/ejs/archive/main.tar.gz | tar xz -C ~/.cache/yt-dlp/ejs --strip-components=1
-          fi
-          echo "✅ EJS components installed successfully"
+          # نصب رسمی EJS از npm (مطابق مستندات yt-dlp)
+          npm install -g ejs
+          echo "✅ EJS installed globally"
 
       - name: Download video
         run: |
