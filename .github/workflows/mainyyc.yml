@@ -30,7 +30,7 @@ jobs:
             --cookies cookies.txt \
             --js-runtimes node \
             --force-ipv4 \
-            --extractor-args "youtube:player_client=android" \
+            --extractor-args "youtube:player_client=web" \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
