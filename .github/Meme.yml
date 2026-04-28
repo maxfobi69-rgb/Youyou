@@ -1,24 +1,41 @@
 name: YouTube Video Downloader
 
 on:
-  workflow_dispatch:  # امکان اجرای دستی از تب Actions
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'https://youtube.com/watch?is=z_EYwdXKlf8hC_YQ&v=uqz3lej6iLU&feature=youtu.be'
+        required: true
+        default: ''
 
 jobs:
   download:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      # مرحله ۱: دریافت کدهای مخزن (با نسخه جدید)
+      - name: Checkout repository
+        uses: actions/checkout@v5
 
-      - name: Setup yt-dlp
-        uses: AnimMouse/setup-yt-dlp@v1  # نصب yt-dlp
-
-      - name: Download video
+      # مرحله ۲: نصب yt-dlp و ffmpeg
+      - name: Install dependencies
         run: |
-          yt-dlp -o "downloads/%(title)s.%(ext)s" "https://youtu.be/uqz3lej6iLU?is=z_EYwdXKlf8hC_YQ" # لینک ویدیو را جایگزین کنید
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --upgrade pip
+          pip install --upgrade yt-dlp
+          echo "✅ یافتاب، yt-dlp و ffmpeg با موفقیت نصب شدند."
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      # مرحله ۳: دانلود ویدیو
+      - name: Download video using yt-dlp
+        run: |
+          # ایجاد پوشه downloads در صورت عدم وجود
+          mkdir -p downloads
+          # دانلود ویدیو با گزینه‌های مناسب
+          yt-dlp --verbose -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" -o "downloads/%(title)s.%(ext)s" "${{ github.event.inputs.video_url }}"
+
+      # مرحله ۴: آپلود فایل نهایی (با نسخه جدید)
+      - name: Upload video as artifact
+        uses: actions/upload-artifact@v5
         with:
-          name: downloaded-video
-          path: downloads/
+          name: youtube-video
+          path: downloads/*.mp4
