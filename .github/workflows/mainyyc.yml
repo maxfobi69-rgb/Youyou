@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'لینک ویدیوی یوتیوب'
+        description: 'لینک ویدیوی یوتیوب (https://www.youtube.com/watch?v=...)'
         required: true
         default: ''
 
@@ -22,25 +22,41 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip nodejs npm
+          sudo apt-get install -y ffmpeg zip
           python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
 
-      - name: Download YouTube video
+      - name: Extract video ID and prepare Invidious URL
+        run: |
+          URL="${{ github.event.inputs.video_url }}"
+          # استخراج ID از لینک یوتیوب (پشتیبانی از فرمت‌های مختلف)
+          VIDEO_ID=$(echo "$URL" | sed -n 's/.*\(v=\|youtu\.be\/\|embed\/\)\([A-Za-z0-9_-]\{11\}\).*/\2/p')
+          if [ -z "$VIDEO_ID" ]; then
+            echo "❌ Could not extract video ID from URL: $URL"
+            exit 1
+          fi
+          echo "Video ID: $VIDEO_ID"
+          
+          # استفاده از یک نمونه Invidious معروف و پایدار
+          # می‌توانید در صورت نیاز نمونه‌های دیگر را جایگزین کنید:
+          #   - inv.nadeko.net
+          #   - yewtu.be
+          #   - invidious.slipfox.xyz
+          INV_URL="https://inv.nadeko.net/watch?v=${VIDEO_ID}"
+          echo "Invidious URL: $INV_URL"
+          echo "INV_URL=$INV_URL" >> $GITHUB_ENV
+
+      - name: Download video from Invidious
         run: |
           mkdir -p downloads tmp_downloads
-          URL="${{ github.event.inputs.video_url }}"
-          echo "⬇️ Downloading: $URL"
+          echo "⬇️ Downloading from: $INV_URL"
 
-          # از کلاینت Android استفاده می‌کنیم که با Node.js خوب کار می‌کند
           yt-dlp \
             --verbose \
             --force-ipv4 \
-            --js-runtimes node \
-            --extractor-args "youtube:player_client=android" \
             -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
             -o "tmp_downloads/%(title)s.%(ext)s" \
-            "$URL"
+            "$INV_URL"
 
       - name: Split large files (like github-sandbox)
         run: |
