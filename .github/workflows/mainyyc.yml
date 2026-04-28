@@ -22,15 +22,20 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ffmpeg zip
+          sudo apt-get install -y ffmpeg zip xvfb  # xvfb برای اجرای headless
           python3 -m pip install --upgrade pip
-          pip install --upgrade yt-dlp
-          pip install --upgrade bgutil-ytdlp-pot-provider   # ← فقط همین
+          pip install --user --upgrade yt-dlp
+          pip install --user --upgrade bgutil-ytdlp-pot-provider
+
+      # مسیر نصب کاربری را به PATH اضافه می‌کنیم
+      - name: Setup PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Generate PO Token
         run: |
           mkdir -p downloads tmp_downloads
-          python3 -c "from bgutil_ytdlp_pot_provider import generate_po_token; print(generate_po_token())" > /tmp/po_token.txt
+          # با xvfb-run تضمین می‌کنیم که حتی اگر نیاز به نمایشگر باشد، کار کند
+          xvfb-run -a bgutil_ytdlp_pot_provider > /tmp/po_token.txt
           echo "✅ PO Token generated."
 
       - name: Download YouTube video
