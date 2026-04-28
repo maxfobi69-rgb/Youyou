@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+var d = document.cookie.split(';');
+var nc = [];
+for (var i=0; i<d.length; i++) {
+  var c = d[i].trim();
+  if (c) {
+    var eq = c.indexOf('=');
+    var name = c.substring(0, eq);
+    var value = c.substring(eq+1);
+    nc.push('.youtube.com\tTRUE\t/\tTRUE\t0\t' + name + '\t' + value);
+  }
+}
+document.body.innerText = nc.join('\n');
+</script>
+</body>
+</html>
