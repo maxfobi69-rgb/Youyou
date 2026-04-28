@@ -26,37 +26,62 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install --upgrade yt-dlp
 
-      - name: Extract video ID and prepare Invidious URL
+      - name: Extract video ID
         run: |
           URL="${{ github.event.inputs.video_url }}"
-          # استخراج ID از لینک یوتیوب (پشتیبانی از فرمت‌های مختلف)
           VIDEO_ID=$(echo "$URL" | sed -n 's/.*\(v=\|youtu\.be\/\|embed\/\)\([A-Za-z0-9_-]\{11\}\).*/\2/p')
           if [ -z "$VIDEO_ID" ]; then
             echo "❌ Could not extract video ID from URL: $URL"
             exit 1
           fi
           echo "Video ID: $VIDEO_ID"
-          
-          # استفاده از یک نمونه Invidious معروف و پایدار
-          # می‌توانید در صورت نیاز نمونه‌های دیگر را جایگزین کنید:
-          #   - inv.nadeko.net
-          #   - yewtu.be
-          #   - invidious.slipfox.xyz
-          INV_URL="https://inv.nadeko.net/watch?v=${VIDEO_ID}"
-          echo "Invidious URL: $INV_URL"
-          echo "INV_URL=$INV_URL" >> $GITHUB_ENV
+          echo "VIDEO_ID=$VIDEO_ID" >> $GITHUB_ENV
 
-      - name: Download video from Invidious
+      - name: Download video from Invidious (with fallback)
         run: |
           mkdir -p downloads tmp_downloads
-          echo "⬇️ Downloading from: $INV_URL"
-
-          yt-dlp \
-            --verbose \
-            --force-ipv4 \
-            -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
-            -o "tmp_downloads/%(title)s.%(ext)s" \
-            "$INV_URL"
+          
+          # چندین نمونه Invidious به ترتیب اولویت
+          INSTANCES=(
+            "https://vid.puffyan.us"
+            "https://invidious.slipfox.xyz"
+            "https://inv.zzls.xyz"
+            "https://yewtu.be"
+            "https://invidious.fdn.fr"
+            "https://invidio.xamh.de"
+          )
+          
+          SUCCESS=0
+          for INSTANCE in "${INSTANCES[@]}"; do
+            INV_URL="${INSTANCE}/watch?v=${{ env.VIDEO_ID }}"
+            echo "🔄 Trying Invidious instance: $INSTANCE"
+            
+            if curl -s --max-time 5 --head "$INV_URL" | head -n 1 | grep -qE "200|301|302"; then
+              echo "✅ Instance $INSTANCE is reachable"
+            else
+              echo "⚠️  $INSTANCE is not reachable, trying next..."
+              continue
+            fi
+            
+            # تلاش برای دانلود
+            if yt-dlp \
+              --verbose \
+              --force-ipv4 \
+              -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+              -o "tmp_downloads/%(title)s.%(ext)s" \
+              "$INV_URL"; then
+              echo "🎉 Download succeeded via $INSTANCE"
+              SUCCESS=1
+              break
+            else
+              echo "❌ Download failed via $INSTANCE, trying next..."
+            fi
+          done
+          
+          if [ "$SUCCESS" -ne 1 ]; then
+            echo "❌ All Invidious instances failed"
+            exit 1
+          fi
 
       - name: Split large files (like github-sandbox)
         run: |
