@@ -31,7 +31,6 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      # اعتبارسنجی و تبدیل فایل کوکی Bb.txt
       - name: Validate and fix cookies file
         run: |
           echo "===== محتوای Bb.txt (با cat -A) ====="
@@ -42,23 +41,24 @@ jobs:
             echo "✅ فایل Bb.txt دارای تب است."
           else
             echo "⚠️ فاقد تب – در حال تبدیل خودکار..."
-            python3 -c "
-import re
-with open('Bb.txt', 'r') as f:
-    lines = f.readlines()
-with open('Bb.txt', 'w') as f:
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split()
-        if len(parts) >= 7:
-            new_line = '\t'.join(parts[:6]) + '\t' + ' '.join(parts[6:])
-            f.write(new_line + '\n')
-        else:
-            f.write(line + '\n')
-            "
+            python3 << 'PYEOF'
+          import re
+          with open('Bb.txt', 'r') as f:
+              lines = f.readlines()
+          with open('Bb.txt', 'w') as f:
+              for line in lines:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  parts = line.split()
+                  if len(parts) >= 7:
+                      new_line = '\t'.join(parts[:6]) + '\t' + ' '.join(parts[6:])
+                      f.write(new_line + '\n')
+                  else:
+                      f.write(line + '\n')
+          PYEOF
             echo "✅ تبدیل انجام شد."
+            echo "محتوای پس از تبدیل:"
             cat -A Bb.txt | head -n 5
           fi
 
