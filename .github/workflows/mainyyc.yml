@@ -21,9 +21,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip nodejs npm
-          # نصب بسته رسمی yt-dlp-ejs با pip
           pip install --upgrade yt-dlp yt-dlp-ejs
-          echo "✅ yt-dlp and EJS package installed successfully"
 
       - name: Download video
         run: |
@@ -37,4 +35,24 @@ jobs:
             -o "tmp_downloads/%(title)s.%(ext)s" \
             "${{ github.event.inputs.video_url }}"
 
-      # ... سایر بخش‌ها (Split, Commit) بدون تغییر ...
+      - name: Split large files (like github-sandbox)
+        run: |
+          for f in tmp_downloads/*; do
+            [ -f "$f" ] || continue
+            size=$(stat -c%s "$f")
+            if [ $size -gt $((90*1024*1024)) ]; then
+              echo "Splitting $(basename "$f")..."
+              zip -0 -s 90m "downloads/$(basename "$f").zip" -j "$f"
+            else
+              cp "$f" downloads/
+            fi
+          done
+          rm -rf tmp_downloads
+
+      - name: Commit and push files
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add downloads/
+          git commit -m "Add YouTube video" || echo "No changes"
+          git push
