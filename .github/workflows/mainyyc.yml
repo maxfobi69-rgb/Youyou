@@ -23,20 +23,24 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      # 👇 این مرحله اصلاح شده است
-      - name: Create cookies file from base64 secret
+      - name: Decode cookies from file
+        shell: python
         run: |
-          # استفاده از printf برای جلوگیری از افزوده شدن خط جدید اضافی
-          printf '%s' "${{ secrets.YOUTUBE_COOKIES }}" | base64 -d > cookies.txt
-          # بررسی صحت فایل
-          echo "تعداد خطوط: $(wc -l < cookies.txt)"
-          echo "خط اول: $(head -n 1 cookies.txt)"
+          import base64
+          with open('cookies_base64.txt', 'r') as f:
+              b64 = f.read().strip()
+          cookie_text = base64.b64decode(b64).decode('utf-8')
+          with open('cookies.txt', 'w', encoding='utf-8') as f:
+              f.write(cookie_text)
+          print(f"✅ {cookie_text.count(chr(10))} lines written to cookies.txt")
 
       - name: Download video
         run: |
           mkdir -p downloads tmp_downloads
-          yt-dlp --cookies cookies.txt -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
-            -o "tmp_downloads/%(title)s.%(ext)s" "${{ github.event.inputs.video_url }}"
+          yt-dlp --cookies cookies.txt \
+            -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" \
+            -o "tmp_downloads/%(title)s.%(ext)s" \
+            "${{ github.event.inputs.video_url }}"
 
       - name: Split large files
         run: |
