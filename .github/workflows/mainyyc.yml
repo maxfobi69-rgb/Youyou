@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       video_url:
-        description: 'لینک ویدیوی یوتیوب'
+        description: 'لینک ویدیوی یوتیوب را وارد کنید'
         required: true
 
 jobs:
@@ -17,24 +17,31 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # توقف ایمن در صورت خالی بودن لینک
+      - name: Check video URL
+        if: github.event.inputs.video_url == ''
+        run: |
+          echo "⚠️ لینک ویدیو وارد نشده است!"
+          echo "لطفاً به تب Actions بروید، workflow را انتخاب کنید، لینک را وارد کرده و سپس Run workflow را بزنید."
+          exit 1
+
       - name: Install tools
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      # بررسی صحت فایل Bb.txt و تبدیل خودکار در صورت نیاز
+      # اعتبارسنجی و تبدیل فایل کوکی Bb.txt
       - name: Validate and fix cookies file
         run: |
-          echo "===== محتوای فعلی Bb.txt (با cat -A) ====="
+          echo "===== محتوای Bb.txt (با cat -A) ====="
           cat -A Bb.txt | head -n 5
           echo "تعداد خطوط: $(wc -l < Bb.txt)"
           
-          # اگر فاقد کاراکتر تب (^I) باشد، سعی می‌کنیم آن را تعمیر کنیم
           if grep -qP '\t' Bb.txt; then
-            echo "✅ فایل Bb.txt معتبر است (دارای تب)"
+            echo "✅ فایل Bb.txt دارای تب است."
           else
-            echo "⚠️ فایل Bb.txt فاقد تب است. در حال تبدیل خودکار..."
+            echo "⚠️ فاقد تب – در حال تبدیل خودکار..."
             python3 -c "
 import re
 with open('Bb.txt', 'r') as f:
@@ -44,17 +51,14 @@ with open('Bb.txt', 'w') as f:
         line = line.strip()
         if not line:
             continue
-        # جدا کردن ۷ بخش: domain, flag, path, secure, expiry, name, value
         parts = line.split()
         if len(parts) >= 7:
-            # بخش‌های اول تا ششم را با تب جدا کن، سپس بخش هفتم (مقدار) را بچسبان
             new_line = '\t'.join(parts[:6]) + '\t' + ' '.join(parts[6:])
             f.write(new_line + '\n')
         else:
             f.write(line + '\n')
             "
             echo "✅ تبدیل انجام شد."
-            echo "محتوای پس از تبدیل:"
             cat -A Bb.txt | head -n 5
           fi
 
