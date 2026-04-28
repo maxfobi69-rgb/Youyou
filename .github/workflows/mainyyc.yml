@@ -15,7 +15,7 @@ jobs:
 
       - name: Download video
         run: |
-          yt-dlp -o "downloads/%(title)s.%(ext)s" "https://youtu.be/uqz3lej6iLU?is=z_EYwdXKlf8hC_YQ" # لینک ویدیو را جایگزین کنید
+          yt-dlp -o "downloads/%(title)s.%(ext)s" "https://youtube.com/uqz3lej6iLU?is=z_EYwdXKlf8hC_YQ" # لینک ویدیو را جایگزین کنید
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
