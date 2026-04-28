@@ -7,6 +7,10 @@ on:
         description: 'لینک ویدیوی یوتیوب'
         required: true
 
+env:
+  # 👇 رشتهٔ Base64 خود را دقیقاً در اینجا قرار دهید (بدون گیومه و فاصلهٔ اضافه)
+  COOKIE_B64: LnlvdXR1YmUuY29tCVRSVUUJLwlGQUxTRQkwCVBSRUYJdHo9QXNpYS5UZWhyYW4KLnlvdXR1YmUuY29tCVRSVUUJLwlGQUxTRQkwCVNPQ1MJQ0FJU0V3Z0RFZ2s1TURZMU1qWTBOellhQW1WdUlBRWFCZ2lBOGJfUEJnCi55b3V0dWJlLmNvbQlUUlVFCS8JRkFMU0UJMAlfX1NlY3VyZS0zUEFQSVNJRAlTUF80ZWhtZHp3QjFDX19pL0FWYWNxSzg5b2Y4RmhzMkR4
+
 jobs:
   download:
     runs-on: ubuntu-22.04
@@ -23,16 +27,20 @@ jobs:
           sudo apt-get install -y ffmpeg zip
           pip install --upgrade yt-dlp
 
-      - name: Decode cookies from file
+      - name: Decode Base64 and create cookies.txt
         shell: python
         run: |
-          import base64
-          with open('cookies_base64.txt', 'r') as f:
-              b64 = f.read().strip()
+          import base64, os
+          b64 = os.environ['COOKIE_B64'].strip()
+          # رمزگشایی Base64 به متن اصلی کوکی
           cookie_text = base64.b64decode(b64).decode('utf-8')
           with open('cookies.txt', 'w', encoding='utf-8') as f:
               f.write(cookie_text)
-          print(f"✅ {cookie_text.count(chr(10))} lines written to cookies.txt")
+          # چاپ چند خط اول برای اطمینان
+          lines = cookie_text.split('\n')
+          print(f"✅ {len(lines)} lines in cookies.txt")
+          for i, line in enumerate(lines[:3]):
+              print(f"  line {i+1}: {line}")
 
       - name: Download video
         run: |
