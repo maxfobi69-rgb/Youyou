@@ -1,0 +1,24 @@
+name: YouTube Video Downloader
+
+on:
+  workflow_dispatch:  # امکان اجرای دستی از تب Actions
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup yt-dlp
+        uses: AnimMouse/setup-yt-dlp@v1  # نصب yt-dlp
+
+      - name: Download video
+        run: |
+          yt-dlp -o "downloads/%(title)s.%(ext)s" "https://youtu.be/uqz3lej6iLU?is=z_EYwdXKlf8hC_YQ" # لینک ویدیو را جایگزین کنید
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: downloaded-video
+          path: downloads/
